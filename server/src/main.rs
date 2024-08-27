@@ -1,15 +1,20 @@
 use axum::{
-    http::StatusCode,
+    http::{Method, StatusCode},
     routing::{get, post},
     Json, Router,
 };
 use serde::{Deserialize, Serialize};
+use tower_http::cors::{Any, CorsLayer};
 
 #[tokio::main]
 async fn main() {
     tracing_subscriber::fmt::init();
 
-    let app = Router::new().route("/", get(root).post(echo));
+    let cors = CorsLayer::new()
+        .allow_methods([Method::GET, Method::POST])
+        .allow_origin(Any);
+
+    let app = Router::new().route("/", get(root).post(echo)).layer(cors);
 
     let listener = tokio::net::TcpListener::bind("0.0.0.0:3000").await.unwrap();
     axum::serve(listener, app).await.unwrap();
