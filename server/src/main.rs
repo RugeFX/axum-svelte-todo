@@ -9,7 +9,7 @@ use serde::{Deserialize, Serialize};
 async fn main() {
     tracing_subscriber::fmt::init();
 
-    let app = Router::new().route("/", get(root));
+    let app = Router::new().route("/", get(root).post(echo));
 
     let listener = tokio::net::TcpListener::bind("0.0.0.0:3000").await.unwrap();
     axum::serve(listener, app).await.unwrap();
@@ -21,6 +21,16 @@ struct User {
     username: String,
 }
 
-async fn root() -> &'static str {
-    "YEEEEEAAAAHHHH"
+async fn root() -> Json<User> {
+    Json(User {
+        id: 1,
+        username: "RugeFX".to_owned(),
+    })
+}
+
+async fn echo(body: String) -> String {
+    match body {
+        b if b.is_empty() => "bruh".to_owned(),
+        _ => body,
+    }
 }
