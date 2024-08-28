@@ -11,7 +11,13 @@ async fn main() {
     tracing_subscriber::fmt::init();
 
     let cors = CorsLayer::new()
-        .allow_methods([Method::GET, Method::POST])
+        .allow_methods([
+            Method::GET,
+            Method::POST,
+            Method::PUT,
+            Method::PATCH,
+            Method::DELETE,
+        ])
         .allow_origin(Any);
 
     let app = Router::new().route("/", get(root).post(echo)).layer(cors);
