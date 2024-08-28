@@ -1,17 +1,10 @@
 use std::env;
 
-use axum::{
-    extract::State,
-    http::{Method, StatusCode},
-    response::Html,
-    routing::{get, post},
-    Json, Router,
-};
+use axum::{extract::State, http::Method, response::Html, routing::get, Json, Router};
 use dotenvy::dotenv;
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 use sqlx::{postgres::PgPoolOptions, PgPool};
 use tower_http::cors::{Any, CorsLayer};
-use tracing_subscriber::fmt::format;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -45,7 +38,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let app = Router::new()
         .route("/", get(html))
         .route("/api", get(root).post(echo))
-        .route("/query", get(query_test))
+        .route("/api/query", get(query_test))
         .layer(cors)
         .with_state(db);
 
@@ -57,29 +50,31 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
-#[derive(Serialize)]
-struct User {
-    id: u64,
-    username: String,
+#[derive(Debug, Serialize, sqlx::FromRow)]
+struct Todo {
+    id: i32,
+    title: String,
+    body: String,
 }
 
-async fn query_test(State(db): State<PgPool>) -> String {
-    let result = sqlx::query("SELECT * FROM todos")
+async fn query_test(State(db): State<PgPool>) -> Json<Vec<Todo>> {
+    let result = sqlx::query_as::<_, Todo>("SELECT * FROM todos")
         .fetch_all(&db)
         .await
         .unwrap();
 
-    format!("Todo : {:?}", result)
+    Json(result)
 }
 
 async fn html() -> Html<&'static str> {
     Html("<h1>HTML thingymajiggy</h1>")
 }
 
-async fn root() -> Json<User> {
-    Json(User {
+async fn root() -> Json<Todo> {
+    Json(Todo {
         id: 1,
-        username: "RugeFX".to_owned(),
+        title: "Title".to_owned(),
+        body: "Body".to_owned(),
     })
 }
 
