@@ -1,8 +1,14 @@
 use std::env;
 
-use axum::{extract::State, http::Method, response::Html, routing::get, Json, Router};
+use axum::{
+    extract::{Path, State},
+    http::{Method, StatusCode},
+    response::{Html, IntoResponse},
+    routing::{delete, get},
+    Json, Router,
+};
 use dotenvy::dotenv;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use sqlx::{postgres::PgPoolOptions, PgPool};
 use tower_http::cors::{Any, CorsLayer};
 
@@ -38,7 +44,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let app = Router::new()
         .route("/", get(html))
         .route("/api", get(root).post(echo))
-        .route("/api/query", get(query_test))
+        .route("/api/todos", get(get_todos).post(post_todo))
+        .route("/api/todos/:id", delete(delete_todo))
         .layer(cors)
         .with_state(db);
 
@@ -55,15 +62,6 @@ struct Todo {
     id: i32,
     title: String,
     body: String,
-}
-
-async fn query_test(State(db): State<PgPool>) -> Json<Vec<Todo>> {
-    let result = sqlx::query_as::<_, Todo>("SELECT * FROM todos")
-        .fetch_all(&db)
-        .await
-        .unwrap();
-
-    Json(result)
 }
 
 async fn html() -> Html<&'static str> {
@@ -83,4 +81,57 @@ async fn echo(body: String) -> String {
         b if b.is_empty() => "bruh".to_owned(),
         _ => body,
     }
+}
+
+async fn get_todos(State(db): State<PgPool>) -> Json<Vec<Todo>> {
+    let result = sqlx::query_as::<_, Todo>("SELECT * FROM todos")
+        .fetch_all(&db)
+        .await
+        .unwrap();
+
+    Json(result)
+}
+
+#[derive(Deserialize)]
+struct CreateTodo {
+    title: String,
+    body: String,
+}
+
+#[derive(Serialize)]
+struct CreateError {
+    status: String,
+    message: String,
+}
+
+async fn post_todo(
+    State(db): State<PgPool>,
+    Json(body): Json<CreateTodo>,
+) -> Result<impl IntoResponse, (StatusCode, Json<CreateError>)> {
+    let result = sqlx::query("INSERT INTO todos (title, body) VALUES ($1, $2)")
+        .bind(body.title)
+        .bind(body.body)
+        .execute(&db)
+        .await;
+
+    match result {
+        Err(err) => {
+            println!("{err}");
+
+            Err((
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(CreateError {
+                    status: "failed".to_owned(),
+                    message: "I don't know why but it failed :(".to_owned(),
+                }),
+            ))
+        }
+        Ok(result) => Ok(format!("{:?}", result)),
+    }
+}
+
+async fn delete_todo(State(db): State<PgPool>, Path(id): Path<i32>) {
+    println!("{id}");
+
+    todo!("ain't implemented yet")
 }
