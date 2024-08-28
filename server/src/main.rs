@@ -1,5 +1,6 @@
 use axum::{
     http::{Method, StatusCode},
+    response::Html,
     routing::{get, post},
     Json, Router,
 };
@@ -20,9 +21,14 @@ async fn main() {
         ])
         .allow_origin(Any);
 
-    let app = Router::new().route("/", get(root).post(echo)).layer(cors);
+    let app = Router::new()
+        .route("/", get(html))
+        .route("/api", get(root).post(echo))
+        .layer(cors);
 
     let listener = tokio::net::TcpListener::bind("0.0.0.0:3000").await.unwrap();
+
+    println!("App listening on {}", listener.local_addr().unwrap());
     axum::serve(listener, app).await.unwrap();
 }
 
@@ -30,6 +36,10 @@ async fn main() {
 struct User {
     id: u64,
     username: String,
+}
+
+async fn html() -> Html<&'static str> {
+    Html("<h1>HTML thingymajiggy</h1>")
 }
 
 async fn root() -> Json<User> {
