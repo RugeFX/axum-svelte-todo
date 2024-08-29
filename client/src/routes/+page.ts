@@ -1,9 +1,16 @@
-// TODO: give the correct types
-export const load = async ({ fetch }: { fetch: typeof globalThis.fetch }) => {
-	const response = await fetch(
-		"http://localhost:3000"
-	)
+import type { PageLoad } from "./$types"
 
-	const user = await response.json()
-	return user
+interface Todo {
+        id: number,
+        title: string,
+        body: string
 }
+
+export const load: PageLoad = async ({ fetch }) => {
+        const response = await fetch(
+                "http://localhost:3000/api/todos"
+        )
+
+        const todos: Todo[] = await response.json()
+        return { todos }
+} 

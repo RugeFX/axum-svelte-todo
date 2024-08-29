@@ -1,9 +1,10 @@
 <script lang="ts">
-	export let data;
+	import type { PageData } from './$types';
 
-	$: console.log(data);
+	export let data: PageData;
+
+	$: console.log(data.todos);
 </script>
 
-<h1>Welcome to SvelteKit</h1>
-<p>Visit <a href="https://kit.svelte.dev">kit.svelte.dev</a> to read the documentation</p>
+<h1>Welcome to Todos</h1>
 <pre>{JSON.stringify(data, null, 2)}</pre>
