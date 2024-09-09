@@ -1,14 +1,10 @@
+import type { Todo } from "../types/todo"
 import type { PageLoad } from "./$types"
-
-interface Todo {
-        id: number,
-        title: string,
-        body: string
-}
+import { PUBLIC_API_URL } from "$env/static/public"
 
 export const load: PageLoad = async ({ fetch }) => {
         const response = await fetch(
-                "http://localhost:3000/api/todos"
+                `${PUBLIC_API_URL}/api/todos`
         )
 
         const todos: Todo[] = await response.json()
