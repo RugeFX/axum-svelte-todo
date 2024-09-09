@@ -45,7 +45,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .route("/", get(html))
         .route("/api", get(root).post(echo))
         .route("/api/todos", get(get_todos).post(post_todo))
-        .route("/api/todos/:id", delete(delete_todo))
+        .route("/api/todos/:id", delete(delete_todo).get(get_todo_by_id))
         .layer(cors)
         .with_state(db);
 
@@ -62,6 +62,18 @@ struct Todo {
     id: i32,
     title: String,
     body: String,
+}
+
+#[derive(Deserialize, Debug)]
+struct CreateTodo {
+    title: String,
+    body: String,
+}
+
+#[derive(Serialize)]
+struct CreateError {
+    status: String,
+    message: String,
 }
 
 async fn html() -> Html<&'static str> {
@@ -92,22 +104,37 @@ async fn get_todos(State(db): State<PgPool>) -> Json<Vec<Todo>> {
     Json(result)
 }
 
-#[derive(Deserialize)]
-struct CreateTodo {
-    title: String,
-    body: String,
-}
+async fn get_todo_by_id(
+    State(db): State<PgPool>,
+    Path(id): Path<i32>,
+) -> Result<Json<Todo>, (StatusCode, Json<CreateError>)> {
+    let result = sqlx::query_as::<_, Todo>("SELECT * FROM todos WHERE id = $1")
+        .bind(id)
+        .fetch_one(&db)
+        .await;
 
-#[derive(Serialize)]
-struct CreateError {
-    status: String,
-    message: String,
+    match result {
+        Err(err) => {
+            println!("{err}");
+
+            Err((
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(CreateError {
+                    status: "failed".to_owned(),
+                    message: "I don't know why but it failed :(".to_owned(),
+                }),
+            ))
+        }
+        Ok(result) => Ok(Json(result)),
+    }
 }
 
 async fn post_todo(
     State(db): State<PgPool>,
     Json(body): Json<CreateTodo>,
 ) -> Result<impl IntoResponse, (StatusCode, Json<CreateError>)> {
+    println!("{body:?}");
+
     let result = sqlx::query("INSERT INTO todos (title, body) VALUES ($1, $2)")
         .bind(body.title)
         .bind(body.body)
@@ -130,8 +157,41 @@ async fn post_todo(
     }
 }
 
-async fn delete_todo(State(db): State<PgPool>, Path(id): Path<i32>) {
+async fn delete_todo(
+    State(db): State<PgPool>,
+    Path(id): Path<i32>,
+) -> Result<impl IntoResponse, (StatusCode, Json<CreateError>)> {
     println!("{id}");
 
-    todo!("ain't implemented yet")
+    let result = sqlx::query("DELETE FROM todos WHERE id = $1")
+        .bind(id)
+        .execute(&db)
+        .await;
+
+    match result {
+        Err(err) => {
+            println!("{err}");
+
+            Err((
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(CreateError {
+                    status: "failed".to_owned(),
+                    message: "Failed to delete todo :(".to_owned(),
+                }),
+            ))
+        }
+        Ok(result) => {
+            if result.rows_affected() == 0 {
+                Err((
+                    StatusCode::NOT_FOUND,
+                    Json(CreateError {
+                        status: "failed".to_owned(),
+                        message: format!("Todo with id {} not found! :(", id),
+                    }),
+                ))
+            } else {
+                Ok(format!("{:?}", result))
+            }
+        }
+    }
 }
